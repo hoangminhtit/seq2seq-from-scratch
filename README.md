@@ -1,0 +1,1 @@
+<img src="./assets/basic_building_blocks.png" alt="Basic Building Blocks" width="600"/>
