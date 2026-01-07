@@ -161,8 +161,17 @@ if __name__=="__main__":
                 'optimizer_state_dict': optimizer.state_dict(),
                 'train_loss': train_loss,
                 'val_loss': val_loss,
+                'model_args': {
+                    'vocab_size': args.vocab_size,
+                    'd_model': args.d_model,
+                    'num_heads': args.num_heads,
+                    'num_layers': args.num_layers,
+                    'd_ff': args.d_ff,
+                    'max_seq_length': args.max_seq_length,
+                    'dropout': args.dropout
+                }
             }, 'best_model.pt')
-            print(f"✓ Best model saved with validation loss: {val_loss:.4f}")
+            print(f"Best model saved with validation loss: {val_loss:.4f}")
     
     # Step 7: Final evaluation on test set
     print(f"\n{'='*50}")
@@ -181,5 +190,7 @@ if __name__=="__main__":
     print("\nTo evaluate the model, run:")
     print("  python evaluate.py --model_path best_model.pt --dataset test")
     print("\nTo translate sentences, run:")
-    print("  python evaluate.py --translate")
-    print("  python evaluate.py --translate --sentence 'Hello, how are you?'")
+    print("  python generate.py")
+    print("  python generate.py --prompt 'Hello, how are you?'")
+    print("  python generate.py --prompt 'Hello, how are you?' --beam_size 10")
+    print("  python generate.py --prompt 'Hello, how are you?' --greedy")

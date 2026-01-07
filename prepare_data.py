@@ -65,26 +65,3 @@ def prepare_data(vocab_size: int, max_seq_length: int):
         "test_samples": len(dataset['test'])
     }
     return stats
-
-if __name__=="__main__":
-    stats = prepare_data(vocab_size=16000, max_seq_length=128)
-    print(stats)
-  
-    # Build dataset
-    train_src = np.load('./data/train_source.npy', allow_pickle=True)
-    train_target = np.load('./data/train_source.npy', allow_pickle=True)
-
-    test_src = np.load('./data/test_source.npy', allow_pickle=True)
-    test_target = np.load('./data/test_source.npy', allow_pickle=True)
-
-    val_src = np.load('./data/validation_source.npy', allow_pickle=True)
-    val_target = np.load('./data/validation_source.npy', allow_pickle=True)
-
-    train_dataset = MachineTranslationDataset(source_ids=train_src, target_ids=train_target)
-    test_dataset = MachineTranslationDataset(source_ids=test_src, target_ids=test_target)
-    val_dataset = MachineTranslationDataset(source_ids=val_src, target_ids=val_target)
-
-    # Build dataloader
-    train_dataloader = DataLoader(dataset=train_dataset, batch_size=32, shuffle=True)
-    test_dataloader = DataLoader(dataset=test_dataset, batch_size=32, shuffle=False)
-    val_dataloader = DataLoader(dataset=val_dataset, batch_size=32, shuffle=False)

@@ -33,16 +33,26 @@ def evaluate(model, dataloader, criterion, device):
     
     return total_loss / len(dataloader)
 
-def translate_sentence(model, sentence, sp, device, max_length=128):
-    """Translate a single sentence"""
+def translate_sentence(model, sentence, sp, device, max_length=128, use_beam_search=False, beam_size=5):
+    """Translate a single sentence using greedy or beam search"""
     model.eval()
     
     # Encode source sentence
     src_ids = sp.encode(sentence)
     src = torch.tensor([src_ids], dtype=torch.long).to(device)
     
-    # Start with BOS token (assuming id=1)
-    tgt_ids = [1]  # BOS token
+    if use_beam_search:
+        return beam_search_translate(model, src, sp, device, max_length, beam_size)
+    else:
+        return greedy_translate(model, src, sp, device, max_length)
+
+def greedy_translate(model, src, sp, device, max_length=128):
+    """Greedy decoding translation"""
+    # Start with BOS token
+    bos_id = sp.bos_id() if sp.bos_id() >= 0 else 1
+    eos_id = sp.eos_id() if sp.eos_id() >= 0 else 2
+    
+    tgt_ids = [bos_id]
     
     with torch.no_grad():
         for _ in range(max_length):
@@ -54,14 +64,73 @@ def translate_sentence(model, sentence, sp, device, max_length=128):
             # Get next token
             next_token = output[0, -1, :].argmax().item()
             
-            # Stop if EOS token (assuming id=2)
-            if next_token == 2:
+            # Stop if EOS token
+            if next_token == eos_id:
                 break
             
             tgt_ids.append(next_token)
     
-    # Decode target sentence
-    translation = sp.decode(tgt_ids[1:])  # Skip BOS token
+    # Decode target sentence (skip BOS)
+    output_ids = [t for t in tgt_ids[1:] if t not in [0, bos_id, eos_id]]
+    translation = sp.decode(output_ids)
+    return translation
+
+def beam_search_translate(model, src, sp, device, max_length=128, beam_size=5):
+    """Beam search translation"""
+    bos_id = sp.bos_id() if sp.bos_id() >= 0 else 1
+    eos_id = sp.eos_id() if sp.eos_id() >= 0 else 2
+    
+    # Initialize beams
+    beams = [(torch.tensor([[bos_id]], dtype=torch.long).to(device), 0.0)]
+    completed = []
+    
+    with torch.no_grad():
+        for _ in range(max_length):
+            candidates = []
+            
+            for seq, score in beams:
+                # Check if ended
+                if seq[0, -1].item() == eos_id:
+                    completed.append((seq, score))
+                    continue
+                
+                # Forward pass
+                output = model(src, seq)
+                logits = output[0, -1, :]
+                log_probs = torch.log_softmax(logits, dim=-1)
+                
+                # Get top-k
+                top_log_probs, top_indices = torch.topk(log_probs, beam_size)
+                
+                for log_prob, idx in zip(top_log_probs, top_indices):
+                    new_seq = torch.cat([seq, idx.unsqueeze(0).unsqueeze(0)], dim=1)
+                    new_score = score + log_prob.item()
+                    candidates.append((new_seq, new_score))
+            
+            if not candidates:
+                break
+            
+            # Select top beams (normalize by length)
+            candidates.sort(key=lambda x: x[1] / x[0].size(1), reverse=True)
+            beams = candidates[:beam_size]
+            
+            # All ended?
+            if all(seq[0, -1].item() == eos_id for seq, _ in beams):
+                completed.extend(beams)
+                break
+        
+        completed.extend(beams)
+    
+    if not completed:
+        return ""
+    
+    # Get best
+    completed.sort(key=lambda x: x[1] / x[0].size(1), reverse=True)
+    best_seq = completed[0][0][0].tolist()
+    
+    # Clean output
+    output_ids = [t for t in best_seq[1:] if t not in [0, bos_id, eos_id]]
+    translation = sp.decode(output_ids)
     return translation
 
 if __name__ == "__main__":
@@ -87,6 +156,8 @@ if __name__ == "__main__":
     # Translation parameters
     parser.add_argument('--translate', action='store_true', help='Enter translation mode')
     parser.add_argument('--sentence', type=str, default=None, help='Sentence to translate')
+    parser.add_argument('--beam_search', action='store_true', help='Use beam search for translation')
+    parser.add_argument('--beam_size', type=int, default=5, help='Beam size for beam search')
     
     args = parser.parse_args()
     
@@ -125,11 +196,15 @@ if __name__ == "__main__":
         print("\n" + "="*50)
         print("Translation Mode")
         print("="*50)
+        print(f"Decoding: {'Beam Search (size=' + str(args.beam_size) + ')' if args.beam_search else 'Greedy'}")
         
         if args.sentence:
             # Translate single sentence
             print(f"\nSource: {args.sentence}")
-            translation = translate_sentence(model, args.sentence, sp, args.device, args.max_seq_length)
+            translation = translate_sentence(
+                model, args.sentence, sp, args.device, 
+                args.max_seq_length, args.beam_search, args.beam_size
+            )
             print(f"Translation: {translation}")
         else:
             # Interactive translation
@@ -139,7 +214,10 @@ if __name__ == "__main__":
                 if sentence.lower() in ['quit', 'exit', 'q']:
                     break
                 if sentence:
-                    translation = translate_sentence(model, sentence, sp, args.device, args.max_seq_length)
+                    translation = translate_sentence(
+                        model, sentence, sp, args.device, 
+                        args.max_seq_length, args.beam_search, args.beam_size
+                    )
                     print(f"Vietnamese: {translation}\n")
     else:
         # Evaluation mode
@@ -175,7 +253,10 @@ if __name__ == "__main__":
         for i in range(num_samples):
             src_text = sp.decode(src[i].tolist())
             tgt_text = sp.decode(target[i].tolist())
-            pred_text = translate_sentence(model, src_text, sp, args.device, args.max_seq_length)
+            pred_text = translate_sentence(
+                model, src_text, sp, args.device, 
+                args.max_seq_length, args.beam_search, args.beam_size
+            )
             
             print(f"\nSample {i+1}:")
             print(f"  Source:      {src_text}")
