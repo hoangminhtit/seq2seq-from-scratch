@@ -39,14 +39,12 @@ class MultiHeadAttention(nn.Module):
         return output
     
     def split_heads(self, x):
-        batch_size , seq_length, d_model = x.size()
-        out = x.view(batch_size, seq_length, self.num_heads, self.d_k)
-        return out
+        batch_size, seq_length, d_model = x.size()
+        return x.view(batch_size, seq_length, self.num_heads, self.d_k).transpose(1, 2)
     
     def combine_heads(self, x):
-        batch_size, _, seq_length, d_k = x.size()
-        out = x.transpose(1, 2).contiguous().view(batch_size, seq_length, self.d_model)
-        return out
+        batch_size, num_heads, seq_length, d_k = x.size()
+        return x.transpose(1, 2).contiguous().view(batch_size, seq_length, self.d_model)
     
     def forward(self, Q, K, V, mask=None):
         Q = self.split_heads(self.W_q(Q))
@@ -54,6 +52,6 @@ class MultiHeadAttention(nn.Module):
         V = self.split_heads(self.W_v(V))
         
         # Perform scaled dot-product attention
-        attn_output = self.scaled_dot_product_attention(Q, K, V, mask=None)
+        attn_output = self.scaled_dot_product_attention(Q, K, V, mask)
         output = self.W_o(self.combine_heads(attn_output))
         return output
