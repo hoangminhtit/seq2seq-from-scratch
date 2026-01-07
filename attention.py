@@ -4,6 +4,7 @@ import torch.nn as nn
 
 class MultiHeadAttention(nn.Module):
     def __init__(self, d_model: int, num_heads: int):
+        
         """
         The initialization multi-head attention
 
@@ -11,6 +12,8 @@ class MultiHeadAttention(nn.Module):
             d_model (int): dimensionality of the input.
             num_heads (int): the number of attention heads to split the input into.
         """
+        super(MultiHeadAttention, self).__init__()
+        
         assert d_model % num_heads == 0, "d_model must be divisible by num heads"
         
         # Initialize dimensions
