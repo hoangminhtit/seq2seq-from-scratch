@@ -5,7 +5,7 @@ from attention import MultiHeadAttention
 from position_wise_feed_forward import PositionWiseFeedForward
 
 class DecoderLayer(nn.Module):
-    def __init__(self, d_model: int, num_heads: int, d_ff: int):
+    def __init__(self, d_model: int, num_heads: int, d_ff: int, dropout: float = 0.1):
         super(DecoderLayer, self).__init__()
         
         self.self_attn = MultiHeadAttention(d_model, num_heads)
@@ -16,7 +16,7 @@ class DecoderLayer(nn.Module):
         self.norm_2 = nn.LayerNorm(d_model)
         self.norm_3 = nn.LayerNorm(d_model)
         
-        self.dropout = nn.Dropout(0.05)
+        self.dropout = nn.Dropout(dropout)
     
     def forward(self, x, enc_output, src_mask, tgt_mask):
         attn_output = self.self_attn(x, x, x, tgt_mask)
