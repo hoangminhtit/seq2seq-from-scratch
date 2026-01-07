@@ -175,5 +175,11 @@ if __name__=="__main__":
     
     test_loss = evaluate(transformer, test_dataloader, criterion, args.device)
     print(f"Test Loss: {test_loss:.4f}")
+    print(f"Test Perplexity: {torch.exp(torch.tensor(test_loss)):.4f}")
     
     print("\n✓ Training completed!")
+    print("\nTo evaluate the model, run:")
+    print("  python evaluate.py --model_path best_model.pt --dataset test")
+    print("\nTo translate sentences, run:")
+    print("  python evaluate.py --translate")
+    print("  python evaluate.py --translate --sentence 'Hello, how are you?'")
